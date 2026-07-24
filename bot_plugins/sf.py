@@ -104,15 +104,15 @@ class SFPlugin(Plugin):
         lower = text.lower()
 
         # ========== 帮助 ==========
-        if re.match(r'^[/!]?(顺丰帮助|sf_help)\b', lower):
+        if re.match(r'^[/!]?(顺丰帮助|sf_help)', lower):
             return self._help()
 
         # ========== 登录 ==========
-        if re.match(r'^[/!]?(顺丰登录|sf_login)\b', lower):
+        if re.match(r'^[/!]?(顺丰登录|sf_login)', lower):
             return self._start_login(sender_id)
 
         # ========== 手动更新Cookie ==========
-        if re.match(r'^[/!]?(顺丰更新|sf_update)\b', lower):
+        if re.match(r'^[/!]?(顺丰更新|sf_update)', lower):
             cookie = text.split(' ', 1)[1] if ' ' in text else ''
             return self._update_cookie(cookie)
 
