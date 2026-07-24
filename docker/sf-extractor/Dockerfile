@@ -14,11 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/chromium /usr/bin/google-chrome
 
-COPY requirements.txt .
+COPY docker/sf-extractor/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY sf_cookie_extractor.py .
-COPY entrypoint.sh /entrypoint.sh
+COPY docker/sf-extractor/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # 浏览器数据持久化目录
