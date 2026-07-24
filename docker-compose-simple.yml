@@ -75,3 +75,5 @@ networks:
   sf-net:
     driver: bridge
     name: sf-network
+    # 青龙容器加入此网络命令: docker network connect sf-network qinglong
+    # 加入后青龙可用 http://sf-relay:5000 访问中继

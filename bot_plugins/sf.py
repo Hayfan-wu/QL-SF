@@ -12,6 +12,7 @@
   Cookie失效时自动@管理员提醒
 """
 
+import os
 import re
 import json
 import time
@@ -41,14 +42,42 @@ class SFPlugin(Plugin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # 尝试从项目.env读取配置
+        # QL-Bot 会自动传入 project_dir
+        self.project_dir = getattr(self, 'project_dir', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+        # 尝试从项目 .env 读取配置
         try:
             from bot.project_env import ProjectEnv
             env = ProjectEnv(self.project_dir)
             self.RELAY_URL = env.get('SF_RELAY_URL', 'http://127.0.0.1:5000')
             self.RELAY_TOKEN = env.get('SF_RELAY_TOKEN', '')
-        except:
-            pass
+        except Exception as e:
+            # 如果 QL-Bot 的 ProjectEnv 不可用，直接读取 .env
+            env_path = os.path.join(self.project_dir, '.env')
+            if os.path.exists(env_path):
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('SF_RELAY_URL='):
+                            self.RELAY_URL = line.split('=', 1)[1].strip().strip('"').strip("'")
+                        elif line.startswith('SF_RELAY_TOKEN='):
+                            self.RELAY_TOKEN = line.split('=', 1)[1].strip().strip('"').strip("'")
+
+        # 确定 docker compose 的 compose 文件路径
+        self.compose_file = os.path.join(self.project_dir, 'docker-compose-simple.yml')
+        if not os.path.exists(self.compose_file):
+            # 尝试其他文件名
+            alt = os.path.join(self.project_dir, 'docker-compose.yml')
+            if os.path.exists(alt):
+                self.compose_file = alt
+
+    def _docker_cmd(self, *args):
+        """构建 docker compose 命令"""
+        cmd = ['docker', 'compose']
+        if self.compose_file and os.path.exists(self.compose_file):
+            cmd.extend(['-f', self.compose_file])
+        cmd.extend(list(args))
+        return cmd
 
     def _relay_get(self, path):
         headers = {}
@@ -84,7 +113,6 @@ class SFPlugin(Plugin):
 
         # ========== 手动更新Cookie ==========
         if re.match(r'^[/!]?(顺丰更新|sf_update)\b', lower):
-            # 支持中文命令后用空格分隔cookie，也支持英文命令
             cookie = text.split(' ', 1)[1] if ' ' in text else ''
             return self._update_cookie(cookie)
 
@@ -128,7 +156,6 @@ class SFPlugin(Plugin):
 
     def _start_login(self, sender_id):
         """启动noVNC扫码登录"""
-        # 获取服务器IP
         import socket
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -153,10 +180,10 @@ class SFPlugin(Plugin):
 
         # 启动noVNC容器
         try:
+            cmd = self._docker_cmd('--profile', 'login', 'up', '-d', 'sf-login')
             result = subprocess.run(
-                ['docker', 'compose', '--profile', 'login', 'up', '-d', 'sf-login'],
-                capture_output=True, text=True, timeout=30,
-                cwd='/opt/QL-SF'  # 假设项目部署在 /opt/QL-SF
+                cmd, capture_output=True, text=True, timeout=60,
+                cwd=self.project_dir
             )
             if result.returncode != 0:
                 return f"[CQ:face,id=106] 启动登录服务失败:\n{result.stderr[:200]}"
