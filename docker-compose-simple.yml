@@ -1,0 +1,77 @@
+version: "3.8"
+
+# ============================================================
+#  顺丰全自动方案 - 极简版 Docker Compose
+#  只需配置 .env，一条命令启动全部
+# ============================================================
+
+services:
+  # 中继服务器（存储Cookie + Web管理面板）
+  sf-relay:
+    build:
+      context: ./docker/sf-relay
+      dockerfile: Dockerfile
+    container_name: sf-relay
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - relay-data:/app
+    environment:
+      - SF_RELAY_PORT=5000
+      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN}
+      - SF_BARK_KEY=${SF_BARK_KEY}
+      - SF_PUSHPLUS_TOKEN=${SF_PUSHPLUS_TOKEN}
+    networks:
+      - sf-net
+
+  # Cookie自动提取器（每小时自动刷新）
+  sf-extractor:
+    build:
+      context: ./docker/sf-extractor
+      dockerfile: Dockerfile
+    container_name: sf-extractor
+    restart: always
+    depends_on:
+      - sf-relay
+    volumes:
+      - browser-data:/app/browser_data
+    environment:
+      - SF_RELAY_URL=http://sf-relay:5000
+      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN}
+      - EXTRACT_INTERVAL=${EXTRACT_INTERVAL:-3600}
+    networks:
+      - sf-net
+    command: ["daemon"]
+
+  # noVNC扫码登录器（需要时手动启动）
+  sf-login:
+    build:
+      context: ./docker/sf-extractor/noVNC
+      dockerfile: Dockerfile
+    container_name: sf-login
+    restart: "no"
+    depends_on:
+      - sf-relay
+    ports:
+      - "6080:6080"
+    volumes:
+      - browser-data:/app/browser_data
+    environment:
+      - SF_RELAY_URL=http://sf-relay:5000
+      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN}
+    networks:
+      - sf-net
+    profiles:
+      - login
+
+volumes:
+  relay-data:
+    name: sf-relay-data
+  browser-data:
+    name: sf-browser-data
+
+networks:
+  sf-net:
+    driver: bridge
+    name: sf-network

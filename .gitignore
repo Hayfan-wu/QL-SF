@@ -1,0 +1,25 @@
+# 环境配置（含密码，不要上传）
+.env
+
+# 数据库
+sf_tokens.db
+*.db
+
+# 浏览器数据
+browser_data/
+sf_cookies.json
+
+# 日志
+*.log
+
+# 上传的原始文件
+.uploads/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 系统
+.DS_Store
+Thumbs.db
