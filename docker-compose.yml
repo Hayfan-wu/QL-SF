@@ -1,23 +1,27 @@
-version: "3.8"
-
 # ============================================================
-#  顺丰全自动 Cookie 方案 - Docker Compose
-#  配合青龙面板使用
+#  QL-SF 顺丰全自动 Cookie 方案 - Docker Compose
 # ============================================================
 #
-# 使用方式:
-#   1. 复制本文件到服务器
-#   2. 执行: chmod +x deploy.sh && ./deploy.sh
-#   3. 首次扫码: docker compose up sf-login
-#   4. 常规运行: docker compose up -d
+#  Portainer 部署方式:
+#    Stacks → Add stack → Repository
+#    Repository URL: https://github.com/Hayfan-wu/QL-SF.git
+#    Compose path: docker-compose.yml（默认，不用改）
 #
-# 端口说明:
-#   5000 - 中继服务器 API + 管理面板
-#   6080 - noVNC（仅首次登录扫码时使用）
+#  端口:
+#    5000 = 中继 API + 管理面板
+#    6080 = noVNC（仅首次扫码登录时使用）
+#
+#  环境变量（在 Portainer Stack 的 Env vars 中填写）:
+#    SF_RELAY_TOKEN    = 鉴权 Token（必填，随机字符串）
+#    SF_BARK_KEY       = Bark 推送 Key（可选）
+#    SF_PUSHPLUS_TOKEN = PushPlus Token（可选）
+#    EXTRACT_INTERVAL  = Cookie 刷新间隔秒数（默认3600）
+#
 # ============================================================
 
 services:
-  # -------------------- 中继跳板服务器 --------------------
+
+  # ========== 中继服务器（Cookie 存储 + REST API） ==========
   sf-relay:
     build:
       context: .
@@ -27,12 +31,12 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - relay-data:/app          # SQLite 数据库持久化
+      - sf-relay-data:/app
     environment:
       - SF_RELAY_PORT=5000
-      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN:-}       # API 鉴权 Token（建议设置）
-      - SF_BARK_KEY=${SF_BARK_KEY:-}              # Bark 推送 Key
-      - SF_PUSHPLUS_TOKEN=${SF_PUSHPLUS_TOKEN:-}  # PushPlus Token
+      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN:-sf123456token}
+      - SF_BARK_KEY=${SF_BARK_KEY:-}
+      - SF_PUSHPLUS_TOKEN=${SF_PUSHPLUS_TOKEN:-}
     networks:
       - sf-net
     healthcheck:
@@ -40,9 +44,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
-  # -------------------- Cookie 提取器（守护模式） --------------------
+  # ========== Cookie 提取器（守护模式，自动定时刷新） ==========
   sf-extractor:
     build:
       context: .
@@ -53,52 +57,43 @@ services:
       sf-relay:
         condition: service_healthy
     volumes:
-      - browser-data:/app/browser_data   # 浏览器登录态持久化（关键！）
-      - extractor-logs:/app/logs
+      - sf-browser-data:/app/browser_data
     environment:
       - SF_RELAY_URL=http://sf-relay:5000
-      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN:-}
-      - EXTRACT_INTERVAL=${EXTRACT_INTERVAL:-3600}  # 提取间隔（秒）
+      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN:-sf123456token}
+      - EXTRACT_INTERVAL=${EXTRACT_INTERVAL:-3600}
     networks:
       - sf-net
-    # 守护模式：Xvfb + 定时提取
     command: ["daemon"]
 
-  # -------------------- noVNC 登录器（按需启动） --------------------
-  # 仅首次扫码登录时使用，登录完成后停止
+  # ========== noVNC 扫码登录器 ==========
+  # 首次部署后，在 Portainer 中手动 Start 此容器
+  # 扫码登录完成后 Stop 即可，日常不需要运行
   sf-login:
     build:
-      context: ./docker/sf-extractor/noVNC
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/sf-extractor/noVNC/Dockerfile
     container_name: sf-login
-    restart: "no"          # 登录完就停止，不自动重启
+    restart: "no"
     depends_on:
       sf-relay:
         condition: service_healthy
     ports:
-      - "6080:6080"        # noVNC Web 界面
+      - "6080:6080"
     volumes:
-      - browser-data:/app/browser_data   # 共享浏览器数据（关键！）
+      - sf-browser-data:/app/browser_data
     environment:
       - SF_RELAY_URL=http://sf-relay:5000
-      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN:-}
+      - SF_RELAY_TOKEN=${SF_RELAY_TOKEN:-sf123456token}
       - NOVNC_PORT=6080
     networks:
       - sf-net
-    profiles:
-      - login              # 不随 docker compose up -d 自动启动
 
 volumes:
-  relay-data:
-    name: sf-relay-data
-  browser-data:
-    name: sf-browser-data    # 浏览器登录态，最关键的数据
-  extractor-logs:
-    name: sf-extractor-logs
+  sf-relay-data:
+  sf-browser-data:
 
 networks:
   sf-net:
     driver: bridge
     name: sf-network
-    # 如果青龙面板用 docker-compose 部署，可以让它加入同一网络
-    # external: true        # 如果 sf-net 已由青龙创建，取消此注释
