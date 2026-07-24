@@ -9,8 +9,8 @@ services:
   # 中继服务器（存储Cookie + Web管理面板）
   sf-relay:
     build:
-      context: ./docker/sf-relay
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/sf-relay/Dockerfile
     container_name: sf-relay
     restart: always
     ports:
@@ -28,8 +28,8 @@ services:
   # Cookie自动提取器（每小时自动刷新）
   sf-extractor:
     build:
-      context: ./docker/sf-extractor
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/sf-extractor/Dockerfile
     container_name: sf-extractor
     restart: always
     depends_on:

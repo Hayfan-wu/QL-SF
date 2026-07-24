@@ -20,8 +20,8 @@ services:
   # -------------------- 中继跳板服务器 --------------------
   sf-relay:
     build:
-      context: ./docker/sf-relay
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/sf-relay/Dockerfile
     container_name: sf-relay
     restart: always
     ports:
@@ -45,8 +45,8 @@ services:
   # -------------------- Cookie 提取器（守护模式） --------------------
   sf-extractor:
     build:
-      context: ./docker/sf-extractor
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/sf-extractor/Dockerfile
     container_name: sf-extractor
     restart: always
     depends_on:
