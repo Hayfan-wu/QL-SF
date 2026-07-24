@@ -43,7 +43,11 @@ class SFPlugin(Plugin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # QL-Bot 会自动传入 project_dir
-        self.project_dir = getattr(self, 'project_dir', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        _fallback = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # 如果本文件在 archive/ 子目录中，需再向上退一层到仓库根目录
+        if os.path.basename(_fallback) == 'bot_plugins':
+            _fallback = os.path.dirname(_fallback)
+        self.project_dir = getattr(self, 'project_dir', _fallback)
 
         # 尝试从项目 .env 读取配置
         try:
